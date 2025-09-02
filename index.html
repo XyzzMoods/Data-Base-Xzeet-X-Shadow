@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Base Xzeet X Shadow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gray-900">
+  <div class="bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md">
+    <h1 class="text-2xl font-bold text-white text-center mb-6">
+      Data Base Xzeet X Shadow
+    </h1>
+
+    <form id="addForm" class="space-y-4">
+      <input
+        type="text"
+        id="number"
+        placeholder="Masukkan Nomor"
+        class="w-full p-3 rounded-lg bg-gray-700 text-white outline-none focus:ring-2 focus:ring-blue-500"
+        required
+      />
+      <button
+        type="submit"
+        id="submitBtn"
+        class="w-full bg-blue-600 hover:bg-blue-700 transition text-white p-3 rounded-lg font-semibold"
+      >
+        Tambah
+      </button>
+    </form>
+
+    <p id="message" class="text-center text-sm mt-4"></p>
+
+    <!-- List Nomor -->
+    <div class="mt-6">
+      <h2 class="text-lg font-semibold text-white mb-2">List Nomor :</h2>
+      <ul id="numberList" class="space-y-2"></ul>
+    </div>
+  </div>
+
+  <script>
+    const GITHUB_TOKEN = "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"; // Ganti dengan token GitHub
+    const REPO_OWNER = "Zannnn-Dev";
+    const REPO_NAME = "test";
+    const FILE_PATH = "xyezet/main/database.json";
+
+    const form = document.getElementById("addForm");
+    const message = document.getElementById("message");
+    const submitBtn = document.getElementById("submitBtn");
+    const numberList = document.getElementById("numberList");
+
+    // 🔹 Load nomor saat halaman dibuka
+    async function loadNumbers() {
+      numberList.innerHTML = "<p class='text-gray-400'>Loading...</p>";
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+          { headers: { Authorization: `token ${GITHUB_TOKEN}` } }
+        );
+        const fileData = await res.json();
+        const content = atob(fileData.content);
+        const json = JSON.parse(content);
+
+        numberList.innerHTML = "";
+        json.forEach((num, index) => {
+          const li = document.createElement("li");
+          li.className =
+            "flex items-center justify-between bg-gray-700 px-4 py-2 rounded-lg text-white";
+          li.innerHTML = `
+            <span>${num}</span>
+            <button onclick="deleteNumber(${index})" class="bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg text-sm">
+              Delete
+            </button>
+          `;
+          numberList.appendChild(li);
+        });
+
+        // Simpan SHA untuk update file
+        window.fileSHA = fileData.sha;
+        window.currentData = json;
+      } catch (err) {
+        numberList.innerHTML =
+          "<p class='text-red-400'>Gagal memuat data.</p>";
+      }
+    }
+
+    // 🔹 Tambah nomor
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const number = document.getElementById("number").value;
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Menambahkan...";
+      message.innerText = "";
+
+      try {
+        const newData = [...window.currentData, number];
+
+        const update = await fetch(
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `token ${GITHUB_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: `add number: ${number}`,
+              content: btoa(JSON.stringify(newData, null, 2)),
+              sha: window.fileSHA,
+            }),
+          }
+        );
+
+        if (update.ok) {
+          message.innerText = "Nomor berhasil ditambahkan!";
+          message.className = "text-center text-sm text-green-400 mt-4";
+          loadNumbers();
+        } else {
+          message.innerText = "Gagal update ke GitHub.";
+          message.className = "text-center text-sm text-red-400 mt-4";
+        }
+      } catch (err) {
+        message.innerText = "⚠️ Error server.";
+        message.className = "text-center text-sm text-yellow-400 mt-4";
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.innerText = "Tambah";
+      form.reset();
+    });
+
+    // 🔹 Hapus nomor
+    async function deleteNumber(index) {
+      if (!confirm("Yakin ingin menghapus nomor ini?")) return;
+
+      const newData = window.currentData.filter((_, i) => i !== index);
+
+      try {
+        const update = await fetch(
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `token ${GITHUB_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: `delete number index: ${index}`,
+              content: btoa(JSON.stringify(newData, null, 2)),
+              sha: window.fileSHA,
+            }),
+          }
+        );
+
+        if (update.ok) {
+          message.innerText = "Nomor berhasil dihapus!";
+          message.className = "text-center text-sm text-green-400 mt-4";
+          loadNumbers();
+        } else {
+          message.innerText = "Gagal menghapus.";
+          message.className = "text-center text-sm text-red-400 mt-4";
+        }
+      } catch (err) {
+        message.innerText = "Error server.";
+        message.className = "text-center text-sm text-yellow-400 mt-4";
+      }
+    }
+
+    // Supaya bisa dipanggil dari button
+    window.deleteNumber = deleteNumber;
+
+    // Jalankan pertama kali
+    loadNumbers();
+  </script>
+</body>
+</html>
